@@ -6,7 +6,7 @@ import requests
 from urllib.parse import urlencode
 import webbrowser
 
-from concert import retrieve_concert_program, analyze_concert_program
+from . concert import retrieve_concert_program, analyze_concert_program
 
 # Load environment variables from .env file
 load_dotenv()
@@ -69,12 +69,12 @@ def get_access_token():
         pass
 
     # Step 1: Redirect the user to Spotify for authorization
-    auth_url = f"https://accounts.spotify.com/authorize?{urlencode({
+    auth_url = f"""https://accounts.spotify.com/authorize?{urlencode({
         'response_type': 'code',
         'client_id': CLIENT_ID,
         'redirect_uri': REDIRECT_URI,
         'scope': SCOPE
-    })}"
+    })}"""
 
     # Open the authorization URL in the browser
     print("Please visit the following URL to authorize the application:")
@@ -143,25 +143,3 @@ def add_tracks_to_playlist(access_token, playlist_id, track_uris) -> None:
     data = json.dumps({"uris": track_uris})
     requests.post(url, headers=headers, data=data)
 
-
-def main():
-
-    #URL = "https://www.carnegiehall.org/Calendar/2025/03/21/Nobuyuki-Tsujii-Piano-0800PM"
-    URL = "https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich/"
-
-    concert_program = retrieve_concert_program(URL)
-    concert = analyze_concert_program(concert_program)
-
-    access_token = get_access_token()  # Get the access token after user authorization
-    all_track_uris = []
-    
-    for song in concert.songs:
-        tracks = search_tracks(access_token, song["title"], song.get("artist"))
-        all_track_uris.extend([track["uri"] for track in tracks])
-    
-    playlist_id = create_playlist(access_token, concert.title)
-    add_tracks_to_playlist(access_token, playlist_id, all_track_uris)
-    print(f"Playlist created: https://open.spotify.com/playlist/{playlist_id}")
-
-if __name__ == "__main__":
-    main()

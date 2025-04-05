@@ -6,7 +6,8 @@ flask --app source.app run
 
 Example
 ```
-curl http://localhost:5000/build-program?concert_webpage=https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich
+curl http://localhost:5000/preview-program?concert_webpage=https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich
+curl http://localhost:5000/make-playlist?concert_webpage=https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich
 ```
 
 ## Environment variables
