@@ -5,7 +5,8 @@ import base64
 import json
 from urllib.parse import urlencode
 import webbrowser
-from time import sleep
+
+from concert import retrieve_concert_program, analyze_concert_program
 
 # Load environment variables from .env file
 load_dotenv()
@@ -96,20 +97,22 @@ def add_tracks_to_playlist(access_token, playlist_id, track_uris):
 
 # Main function
 def main():
-    songs = [
-        {"title": "Double Play", "artist": "Cindy McTee"},
-        {"title": "Triathlon", "artist": "John Corigliano"},
-        {"title": "Symphony No. 5", "artist": "Shostakovich"},
-    ]
+
+    URL = "https://www.carnegiehall.org/Calendar/2025/03/21/Nobuyuki-Tsujii-Piano-0800PM"
+    #URL = "https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich/"
+
+    concert_program = retrieve_concert_program(URL)
+    concert = analyze_concert_program(concert_program)
+    
     
     access_token = get_access_token()  # Get the access token after user authorization
     all_track_uris = []
     
-    for song in songs:
+    for song in concert.songs:
         tracks = search_tracks(access_token, song["title"], song.get("artist"))
         all_track_uris.extend([track["uri"] for track in tracks])
     
-    playlist_id = create_playlist(access_token, "Concert Playlist")
+    playlist_id = create_playlist(access_token, concert.title)
     add_tracks_to_playlist(access_token, playlist_id, all_track_uris)
     print(f"Playlist created: https://open.spotify.com/playlist/{playlist_id}")
 
