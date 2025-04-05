@@ -1,7 +1,11 @@
 import dataclasses
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 import os
+from openai import OpenAI
+import json
+import bs4
+import requests
 
 load_dotenv()
 
@@ -16,16 +20,7 @@ class Concert:
     songs: List[Song]
 
 
-def analyze_concert_program(concert_program: str) -> Concert:
-    prompt = f"""Inspect the following text which describes a concert program.
-    Generate a title of the form "date at venue".
-    List all of the songs with the artist and title specified separately.
-    Return all of this data as a JSON blob.
-    Do not enclose the JSON in code block tags.
-    
-    {concert_program}"""
-
-    from openai import OpenAI
+def call_open_ai(prompt: str) -> str:
     client = OpenAI(
         api_key=os.environ["OPENAI_API_KEY"],
     )
@@ -36,31 +31,44 @@ def analyze_concert_program(concert_program: str) -> Concert:
             {"role": "user", "content": prompt}
         ]
     )
-
-    import json
-    response = json.loads(completion.choices[0].message.content)
-    return Concert(**response)
+    return completion.choices[0].message.content
 
 
-def retrieve_concert_program(url: str) -> str:
-    import requests
+def analyze_concert_program(concert_program: str) -> Optional[Concert]:
+    prompt = f"""
+    Does the following text include the program for a music concert?
+    Answer either "yes" or "no" with no additional output.
+    
+    {concert_program}"""
+
+    response = call_open_ai(prompt)
+    print(f"is concert program?", response)
+    if "no" in response:
+        return None
+
+    prompt = f"""
+    Inspect the following text which includes the program for a music concert.
+    Generate a title for the concert of the form "date at venue".
+    List all of the songs with the artist and title specified separately.
+    Return this data in a JSON blob.
+    Do not enclose the JSON in code block tags.
+    
+    {concert_program}"""
+
+    response = call_open_ai(prompt)
+    print("parsed concert program:", response)
+    return Concert(**json.loads(response))
+
+
+def retrieve_concert_program(url: str) -> Optional[str]:
     session = requests.Session()
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:134.0) Gecko/20100101 Firefox/134.0",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br, zstd",
-        "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "cross-site",
-        "Priority": "u=0, i",
-        "TE": "trailers"
+        "User-Agent": "Playlister/1.0 (Turn concert webpages into Spotify playlists; playlister@jpfennell.com)",
     }
     session.headers.update(headers)
     response = session.get(url)
-    import bs4
+    if not response.ok:
+        return None
     soup = bs4.BeautifulSoup(response.text, features="lxml")
     return soup.get_text("\n\n", strip=True)
 
