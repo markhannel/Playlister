@@ -1,8 +1,8 @@
-from dotenv import load_dotenv
 import os
-import requests
 import base64
 import json
+from dotenv import load_dotenv
+import requests
 from urllib.parse import urlencode
 import webbrowser
 
@@ -15,16 +15,59 @@ load_dotenv()
 CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI")
-SCOPE = "playlist-modify-private playlist-modify-public"  # Add any scopes you need
+SCOPE = "playlist-modify-private playlist-modify-public"
 USER_ID = os.getenv("SPOTIFY_USER_ID")
+REFRESH_TOKEN = os.getenv("SPOTIFY_REFRESH_TOKEN")
+
+class AccessTokenMissing(Exception):
+    pass
+
+
+def make_post_request(url, data=None, headers=None):
+    """Helper to make POST requests with error handling."""
+    response = requests.post(url, data=data, headers=headers)
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        print(response.json())
+    return response
+
 
 def get_user_id(access_token):
     url = "https://api.spotify.com/v1/me"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
-    return response.json().get("id")  # Returns the user ID
+    return response.json().get("id")
+
+
+def get_access_token_from_refresh_token():
+    # Step 1: Make a POST request to get a new access token using the refresh token
+    url = "https://accounts.spotify.com/api/token"
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": REFRESH_TOKEN
+    }
+
+    # Prepare the authorization header
+    auth = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    headers = {
+        "Authorization": f"Basic {auth}"
+    }
+
+    response = make_post_request(url, data=data, headers=headers)
+
+    if response.status_code == 200:
+        return response.json().get("access_token")
+    raise AccessTokenMissing("Access token not found.")
+
 
 def get_access_token():
+
+    try:
+        return get_access_token_from_refresh_token()
+    except AccessTokenMissing:
+        print("Missing access token.. falling back to authorization.")
+        pass
+
     # Step 1: Redirect the user to Spotify for authorization
     auth_url = f"https://accounts.spotify.com/authorize?{urlencode({
         'response_type': 'code',
@@ -59,9 +102,14 @@ def get_access_token():
     response = requests.post(url, headers=headers, data=data)
     response_data = response.json()
 
-    return response_data.get("access_token")
+    access_token =  response_data.get("access_token")
+    refresh_token = response_data.get("refresh_token")
 
-# Function to search for tracks
+    # (TODO) Save refresh
+    
+    return access_token
+
+
 def search_tracks(access_token, track_name, artist_name=None):
     url = "https://api.spotify.com/v1/search"
     query = f"track:{track_name}"
@@ -73,7 +121,7 @@ def search_tracks(access_token, track_name, artist_name=None):
     tracks = response.json().get("tracks", {}).get("items", [])
     return tracks
 
-# Function to create a playlist
+
 def create_playlist(access_token, name, description="Playlist created via API"):
     USER_ID = get_user_id(access_token)
     url = f"https://api.spotify.com/v1/users/{USER_ID}/playlists"
@@ -88,23 +136,22 @@ def create_playlist(access_token, name, description="Playlist created via API"):
     
     return response.json().get("id")
 
-# Function to add tracks to playlist
-def add_tracks_to_playlist(access_token, playlist_id, track_uris):
+
+def add_tracks_to_playlist(access_token, playlist_id, track_uris) -> None:
     url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
     headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     data = json.dumps({"uris": track_uris})
     requests.post(url, headers=headers, data=data)
 
-# Main function
+
 def main():
 
-    URL = "https://www.carnegiehall.org/Calendar/2025/03/21/Nobuyuki-Tsujii-Piano-0800PM"
-    #URL = "https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich/"
+    #URL = "https://www.carnegiehall.org/Calendar/2025/03/21/Nobuyuki-Tsujii-Piano-0800PM"
+    URL = "https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich/"
 
     concert_program = retrieve_concert_program(URL)
     concert = analyze_concert_program(concert_program)
-    
-    
+
     access_token = get_access_token()  # Get the access token after user authorization
     all_track_uris = []
     
