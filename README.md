@@ -1,5 +1,13 @@
 # Playlister
 
+```
+flask --app source.app run
+```
+
+Example
+```
+curl http://localhost:5000/build-program?concert_webpage=https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich
+```
 
 ## Environment variables
 

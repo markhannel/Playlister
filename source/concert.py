@@ -59,15 +59,8 @@ def retrieve_concert_program(url: str) -> str:
         "TE": "trailers"
     }
     session.headers.update(headers)
-    response = session.get(URL)
+    response = session.get(url)
     import bs4
     soup = bs4.BeautifulSoup(response.text, features="lxml")
     return soup.get_text("\n\n", strip=True)
 
-
-URL = "https://www.carnegiehall.org/Calendar/2025/03/21/Nobuyuki-Tsujii-Piano-0800PM"
-URL = "https://www.nyphil.org/concerts-tickets/2425/slatkin-shostakovich/"
-
-concert_program = retrieve_concert_program(URL)
-concert = analyze_concert_program(concert_program)
-print(concert)
