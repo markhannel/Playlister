@@ -3,10 +3,10 @@ import base64
 import json
 from dotenv import load_dotenv
 import requests
+from requests import Response
+from typing import Optional, Dict, Any, List
 from urllib.parse import urlencode
 import webbrowser
-
-from . concert import retrieve_concert_program, analyze_concert_program
 
 # Load environment variables from .env file
 load_dotenv()
@@ -23,7 +23,11 @@ class AccessTokenMissing(Exception):
     pass
 
 
-def make_post_request(url, data=None, headers=None):
+def make_post_request(
+        url: str,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[Dict[str, str]] = None
+    ) -> Response:
     """Helper to make POST requests with error handling."""
     response = requests.post(url, data=data, headers=headers)
     if response.status_code != 200:
@@ -32,22 +36,21 @@ def make_post_request(url, data=None, headers=None):
     return response
 
 
-def get_user_id(access_token):
+def get_user_id(access_token: str) -> Optional[str]:
     url = "https://api.spotify.com/v1/me"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
     return response.json().get("id")
 
 
-def get_access_token_from_refresh_token():
-    # Step 1: Make a POST request to get a new access token using the refresh token
+def get_access_token_from_refresh_token() -> str:
+    """Fetch a new access token using the refresh token. Raises if unsuccessful."""
     url = "https://accounts.spotify.com/api/token"
     data = {
         "grant_type": "refresh_token",
         "refresh_token": REFRESH_TOKEN
     }
 
-    # Prepare the authorization header
     auth = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
     headers = {
         "Authorization": f"Basic {auth}"
@@ -60,8 +63,8 @@ def get_access_token_from_refresh_token():
     raise AccessTokenMissing("Access token not found.")
 
 
-def get_access_token():
-
+def get_access_token() -> str:
+    """Get a valid Spotify access token using either a refresh token or user authorization flow."""
     try:
         return get_access_token_from_refresh_token()
     except AccessTokenMissing:
@@ -110,7 +113,23 @@ def get_access_token():
     return access_token
 
 
-def search_tracks(access_token, track_name, artist_name=None):
+def search_tracks(
+        access_token: str, 
+        track_name: str, 
+        artist_name: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+    """
+    Search Spotify for tracks matching the track name and optional artist name.
+
+    Args:
+        access_token: Spotify API access token.
+        track_name: Name of the track to search.
+        artist_name: Optional name of the artist.
+
+    Returns:
+        A list of track objects returned by the Spotify API.
+    """
+
     url = "https://api.spotify.com/v1/search"
     query = f"track:{track_name}"
     if artist_name:
@@ -119,6 +138,10 @@ def search_tracks(access_token, track_name, artist_name=None):
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers, params=params)
     tracks = response.json().get("tracks", {}).get("items", [])
+
+    print(len(tracks))
+    print(tracks[0])
+
     return tracks
 
 
@@ -143,3 +166,12 @@ def add_tracks_to_playlist(access_token, playlist_id, track_uris) -> None:
     data = json.dumps({"uris": track_uris})
     requests.post(url, headers=headers, data=data)
 
+
+def main():
+    access_token = get_access_token_from_refresh_token()
+    track_name = "Double Play"
+    artist_name = "Cindy McTee"
+    search_tracks(access_token, track_name, artist_name)
+
+if __name__ == "__main__":
+    main()
